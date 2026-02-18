@@ -96,7 +96,7 @@ async function startMonitoring() {
   const vid = extractVideoId(input);
   if (!vid) { alert("Could not extract video ID from input."); return; }
 
-  const res = await fetch("/ConnectBtn", {
+  const res = await fetch("/start", {
     method: "POST",
     headers: {"Content-Type":"application/json"},
     body: JSON.stringify({stream: input})
