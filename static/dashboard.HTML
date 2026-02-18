@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>YouTube Live Moderation Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+
+<body>
+<header>
+  <div class="row">
+    <div>
+      <div class="title">YouTube Live Toxictiy Detector Dashboard</div>
+    </div>
+
+    <div class="input">
+      <input id="ytInput" type="text" placeholder="Paste YouTube Video link" />
+      <button id="ConnectBtn">Connect</button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="grid">
+    <div class="card">
+      <h2>Stream</h2>
+      <iframe id="player" src="about:blank" allowfullscreen
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"></iframe>
+      <div class="hint"></div>
+    </div>
+
+    <div class="card">
+      <h2>YouTube Live Chat</h2>
+      <iframe id="chatFrame" src="about:blank"></iframe>
+            <div class="hint"></div>
+    </div>
+  </div>
+
+  <div class="feeds">
+    <div class="card">
+      <h2>Likely Toxic <span class="chip">&gt;= 0.60</span></h2>
+      <div class="feed-body" id="feedLikely"></div>
+    </div>
+
+    <div class="card">
+      <h2>Toxic Elements <span class="chip">0.20 – 0.59</span></h2>
+      <div class="feed-body" id="feedElements"></div>
+    </div>
+
+    <div class="card">
+      <h2>Normal <span class="chip">&lt; 0.20</span></h2>
+      <div class="feed-body" id="feedNormal"></div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/javascript.js"></script>
+</body>
+</html>

@@ -7,8 +7,8 @@ MODEL_NAME = "unitary/toxic-bert"
 device = 0 if torch.cuda.is_available() else -1
 clf = pipeline("text-classification", model=MODEL_NAME, tokenizer=MODEL_NAME, device=device)
 
-# -------- Stream input --------
-print("\n=== YouTube Live Toxicity Monitor ===")
+# stream id input
+print("\n---YouTube Live Toxicity Monitor ---")
 print("Insert YouTube live stream link here\n")
 
 user_input = input("Stream link: ").strip()
