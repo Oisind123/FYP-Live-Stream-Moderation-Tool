@@ -1,0 +1,6 @@
+fastapi
+daphne
+pytchat
+torch
+transformers
+uvicorn
