@@ -1,11 +1,12 @@
 import asyncio
+import json
+import os
 import re
 import threading
 import time
-import json
 from typing import Optional, Set
 
-import pytchat
+import requests
 import torch
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +18,7 @@ from transformers import pipeline
 MODEL_NAME = "unitary/toxic-bert"
 THRESH_LIKELY = 0.60
 THRESH_ELEMENTS = 0.20
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
 app = FastAPI(title="Live Stream Moderation Backend")
 
@@ -41,7 +43,7 @@ clf = pipeline(
     "text-classification",
     model=MODEL_NAME,
     tokenizer=MODEL_NAME,
-    device=device
+    device=device,
 )
 
 
@@ -60,31 +62,23 @@ def get_scores(text: str) -> dict:
 
 clients: Set["asyncio.Queue[str]"] = set()
 event_loop: Optional[asyncio.AbstractEventLoop] = None
-
-
-def broadcast_json(payload: str):
-    if event_loop is None:
-        print("BROADCAST DROPPED: event_loop is None", flush=True)
-        return
-
-    if len(clients) == 0:
-        print("BROADCAST DROPPED: no clients", flush=True)
-        return
-
-    async def _push():
-        print("PUSHING TO", len(clients), "clients", flush=True)
-        for q in list(clients):
-            try:
-                q.put_nowait(payload)
-            except Exception as e:
-                print("QUEUE PUSH ERROR", repr(e), flush=True)
-
-    asyncio.run_coroutine_threadsafe(_push(), event_loop)
-
-
 worker_thread: Optional[threading.Thread] = None
 stop_flag = threading.Event()
 current_video_id: Optional[str] = None
+
+
+def broadcast_json(payload: str):
+    if event_loop is None or len(clients) == 0:
+        return
+
+    async def _push():
+        for q in list(clients):
+            try:
+                q.put_nowait(payload)
+            except Exception:
+                pass
+
+    asyncio.run_coroutine_threadsafe(_push(), event_loop)
 
 
 def extract_video_id(s: str) -> Optional[str]:
@@ -115,73 +109,111 @@ def tier_for_score(p_toxic: float) -> str:
     return "NORMAL"
 
 
+def get_active_live_chat_id(video_id: str) -> Optional[str]:
+    if not YOUTUBE_API_KEY:
+        raise RuntimeError("Missing YOUTUBE_API_KEY")
+
+    url = "https://www.googleapis.com/youtube/v3/videos"
+    params = {
+        "part": "liveStreamingDetails",
+        "id": video_id,
+        "key": YOUTUBE_API_KEY,
+    }
+
+    r = requests.get(url, params=params, timeout=20)
+    r.raise_for_status()
+    data = r.json()
+
+    items = data.get("items", [])
+    if not items:
+        return None
+
+    details = items[0].get("liveStreamingDetails", {})
+    return details.get("activeLiveChatId")
+
+
+def fetch_live_chat_messages(live_chat_id: str, page_token: Optional[str] = None) -> dict:
+    if not YOUTUBE_API_KEY:
+        raise RuntimeError("Missing YOUTUBE_API_KEY")
+
+    url = "https://www.googleapis.com/youtube/v3/liveChat/messages"
+    params = {
+        "liveChatId": live_chat_id,
+        "part": "id,snippet,authorDetails",
+        "maxResults": 200,
+        "key": YOUTUBE_API_KEY,
+    }
+
+    if page_token:
+        params["pageToken"] = page_token
+
+    r = requests.get(url, params=params, timeout=20)
+    r.raise_for_status()
+    return r.json()
+
+
 def chat_worker(video_id: str):
     global current_video_id
     current_video_id = video_id
 
-    chat = pytchat.create(video_id=video_id, interruptable=False)
+    try:
+        live_chat_id = get_active_live_chat_id(video_id)
+        if not live_chat_id:
+            current_video_id = None
+            return
 
-    while not stop_flag.is_set() and chat.is_alive():
-        try:
-            for c in chat.get().sync_items():
-                if stop_flag.is_set():
-                    break
+        next_page_token = None
+        seen_ids = set()
 
-                text = c.message
+        while not stop_flag.is_set():
+            data = fetch_live_chat_messages(live_chat_id, next_page_token)
+
+            for item in data.get("items", []):
+                msg_id = item.get("id")
+                if not msg_id or msg_id in seen_ids:
+                    continue
+                seen_ids.add(msg_id)
+
+                author = item.get("authorDetails", {}).get("displayName", "")
+                text = item.get("snippet", {}).get("displayMessage", "")
+                ts = item.get("snippet", {}).get("publishedAt", "")
+
                 scores = get_scores(text)
                 p_toxic = scores.get("TOXIC", scores.get("LABEL_1", 0.0))
                 tier = tier_for_score(p_toxic)
 
-                open_chat = f"https://www.youtube.com/live_chat?v={video_id}"
-                open_watch = f"https://www.youtube.com/watch?v={video_id}"
-                author_q = c.author.name.strip()
-                search_user = f"https://www.youtube.com/results?search_query={author_q}"
-
-                print("CHAT:", text, p_toxic, tier)
+                user_link = f"https://www.youtube.com/results?search_query={author}"
 
                 payload_obj = {
-                    "ts": str(c.datetime),
+                    "ts": ts,
                     "video_id": video_id,
-                    "author": author_q,
+                    "author": author,
                     "text": text,
                     "p_toxic": float(p_toxic),
                     "tier": tier,
                     "links": {
-                        "open_chat": open_chat,
-                        "open_watch": open_watch,
-                        "search_user": search_user,
+                        "user": user_link
                     },
                 }
 
-                print("BROADCASTING:", payload_obj)
                 broadcast_json(json.dumps(payload_obj, ensure_ascii=False))
 
-        except Exception as e:
-            err_payload = (
-                '{'
-                f'"ts":"",'
-                f'"video_id":"{video_id}",'
-                f'"author":"",'
-                f'"text":"[Backend error] {escape_json(str(e))}",'
-                f'"p_toxic":0.0,'
-                f'"tier":"SYSTEM",'
-                f'"links":{{"open_chat":"","open_watch":"","search_user":""}}'
-                '}'
-            )
-            broadcast_json(err_payload)
-            time.sleep(1)
+            next_page_token = data.get("nextPageToken")
+            wait_ms = data.get("pollingIntervalMillis", 2000)
+            time.sleep(wait_ms / 1000.0)
 
-    current_video_id = None
-
-
-def escape_json(s: str) -> str:
-    return (
-        s.replace("\\", "\\\\")
-         .replace('"', '\\"')
-         .replace("\n", "\\n")
-         .replace("\r", "\\r")
-         .replace("\t", "\\t")
-    )
+    except Exception as e:
+        error_payload = {
+            "ts": "",
+            "video_id": video_id,
+            "author": "",
+            "text": f"[Backend error] {str(e)}",
+            "p_toxic": 0.0,
+            "tier": "SYSTEM",
+            "links": {"user": ""},
+        }
+        broadcast_json(json.dumps(error_payload, ensure_ascii=False))
+        current_video_id = None
 
 
 class StartReq(BaseModel):
@@ -202,7 +234,7 @@ def start(req: StartReq):
     worker_thread = threading.Thread(
         target=chat_worker,
         args=(vid,),
-        daemon=True
+        daemon=True,
     )
     worker_thread.start()
 
@@ -230,7 +262,7 @@ def status():
         "video_id": current_video_id,
         "thresholds": {
             "elements": THRESH_ELEMENTS,
-            "likely": THRESH_LIKELY
+            "likely": THRESH_LIKELY,
         },
     }
 
@@ -242,7 +274,6 @@ async def ws_endpoint(websocket: WebSocket):
     global event_loop
     if event_loop is None:
         event_loop = asyncio.get_running_loop()
-        print("event_loop set from ws ✅", flush=True)
 
     q: asyncio.Queue[str] = asyncio.Queue(maxsize=500)
     clients.add(q)

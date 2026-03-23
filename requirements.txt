@@ -4,3 +4,4 @@ pytchat
 torch
 transformers
 uvicorn
+requests
