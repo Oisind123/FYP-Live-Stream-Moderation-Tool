@@ -18,7 +18,7 @@ from transformers import pipeline
 MODEL_NAME = "unitary/toxic-bert"
 THRESH_LIKELY = 0.60
 THRESH_ELEMENTS = 0.20
-YOUTUBE_API_KEY = os.getenv("AIzaSyB8GmPMbB0r68pVaAsQ7kOT10wevhGUHpU")
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
 app = FastAPI(title="Live Stream Moderation Backend")
 
