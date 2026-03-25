@@ -163,14 +163,13 @@ def chat_worker(video_id: str):
             return
 
         next_page_token = None
-        if len(seen_ids) > 5000:
-        seen_ids.clear()
+        seen_ids = set()
 
         while not stop_flag.is_set():
               if len(clients) == 0:
                 time.sleep(5)
                 continue
-                
+
             data = fetch_live_chat_messages(live_chat_id, next_page_token)
 
             for item in data.get("items", []):
@@ -203,9 +202,12 @@ def chat_worker(video_id: str):
 
                 broadcast_json(json.dumps(payload_obj, ensure_ascii=False))
 
-            next_page_token = data.get("nextPageToken")
-            wait_ms = data.get("pollingIntervalMillis", 2000)
-            time.sleep(max(wait_ms / 1000.0, 2))
+                if len(seen_ids) > 5000:
+                        seen_ids.clear()
+
+                next_page_token = data.get("nextPageToken")
+                wait_ms = data.get("pollingIntervalMillis", 2000)
+                time.sleep(max(wait_ms / 1000.0, 2))
 
     except Exception as e:
         error_payload = {

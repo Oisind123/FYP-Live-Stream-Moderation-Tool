@@ -44,8 +44,8 @@ function CreateMsgCard(evt) {
 
   let tagClass = "good";
   let tagText = "Normal Chat";
-  if (evt.tier === "LIKELY_TOXIC") { tagClass = "bad"; tagText = "Likely Toxic Chat"; }
-  else if (evt.tier === "TOXIC_ELEMENTS") { tagClass = "mid"; tagText = "Toxic Elements in Chat"; }
+  if (evt.tier === "LIKELY_TOXIC") { tagClass = "bad"; tagText = "Toxic Chat"; }
+  else if (evt.tier === "TOXIC_ELEMENTS") { tagClass = "mid"; tagText = "Potentially Toxic Chat"; }
   else if (evt.tier === "SYSTEM") { tagClass = "mid"; tagText = "System"; }
 
   const userLink = evt.links?.user || evt.links?.search_user || "";
