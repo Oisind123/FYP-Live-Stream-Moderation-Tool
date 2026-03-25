@@ -166,7 +166,7 @@ def chat_worker(video_id: str):
         seen_ids = set()
 
         while not stop_flag.is_set():
-              if len(clients) == 0:
+            if len(clients) == 0:
                 time.sleep(5)
                 continue
 
@@ -176,6 +176,7 @@ def chat_worker(video_id: str):
                 msg_id = item.get("id")
                 if not msg_id or msg_id in seen_ids:
                     continue
+
                 seen_ids.add(msg_id)
 
                 author = item.get("authorDetails", {}).get("displayName", "")
@@ -202,12 +203,12 @@ def chat_worker(video_id: str):
 
                 broadcast_json(json.dumps(payload_obj, ensure_ascii=False))
 
-                if len(seen_ids) > 5000:
-                        seen_ids.clear()
+            if len(seen_ids) > 5000:
+                seen_ids.clear()
 
-                next_page_token = data.get("nextPageToken")
-                wait_ms = data.get("pollingIntervalMillis", 2000)
-                time.sleep(max(wait_ms / 1000.0, 2))
+            next_page_token = data.get("nextPageToken")
+            wait_ms = data.get("pollingIntervalMillis", 2000)
+            time.sleep(max(wait_ms / 1000.0, 2))
 
     except Exception as e:
         error_payload = {
@@ -221,7 +222,6 @@ def chat_worker(video_id: str):
         }
         broadcast_json(json.dumps(error_payload, ensure_ascii=False))
         current_video_id = None
-
 
 class StartReq(BaseModel):
     stream: str
