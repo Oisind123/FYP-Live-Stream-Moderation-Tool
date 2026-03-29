@@ -34,3 +34,4 @@ a.btnlink{display:inline-block;padding:6px 10px;border-radius:10px;border:1px so
 a.btnlink:hover{filter:brightness(1.08)}
 .hint{padding:12px 14px;color:var(--muted);font-size:13px;border-top:1px solid var(--border)}
 .system{opacity:.85}
+.footer {text-align: center;padding: 15px;margin-top: 30px;font-size: 14px;color: #888;}
