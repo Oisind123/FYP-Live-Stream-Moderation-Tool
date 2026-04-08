@@ -108,4 +108,8 @@ async function startMonitoring() {
   setStatus("Running");
 }
 
+window.addEventListener("beforeunload", () => {
+  navigator.sendBeacon("/stop");
+});
+
 document.getElementById("ConnectBtn").addEventListener("click", startMonitoring);
