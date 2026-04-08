@@ -108,8 +108,11 @@ async function startMonitoring() {
   setStatus("Running");
 }
 
-window.addEventListener("beforeunload", () => {
+function stopMonitoringOnExit() {
   navigator.sendBeacon("/stop");
-});
+}
+
+window.addEventListener("beforeunload", stopMonitoringOnExit);
+window.addEventListener("pagehide", stopMonitoringOnExit);
 
 document.getElementById("ConnectBtn").addEventListener("click", startMonitoring);
