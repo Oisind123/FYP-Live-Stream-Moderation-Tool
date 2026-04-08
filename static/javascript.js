@@ -89,6 +89,14 @@ function connectWS() {
   };
 }
 
+async function stopOnLoad() {
+  try {
+    await fetch("/stop", { method: "POST" });
+  } catch (e) {}
+}
+
+stopOnLoad();
+
 connectWS();
 
 async function startMonitoring() {
@@ -111,6 +119,7 @@ async function startMonitoring() {
 function stopMonitoringOnExit() {
   navigator.sendBeacon("/stop");
 }
+
 
 window.addEventListener("beforeunload", stopMonitoringOnExit);
 window.addEventListener("pagehide", stopMonitoringOnExit);
