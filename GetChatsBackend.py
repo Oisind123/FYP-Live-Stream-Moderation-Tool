@@ -250,7 +250,7 @@ def start(req: StartReq):
 
 @app.post("/stop")
 def stop():
-    global worker_thread
+    global worker_thread, current_video_id
 
     stop_flag.set()
 
@@ -258,6 +258,7 @@ def stop():
         worker_thread.join(timeout=2)
 
     worker_thread = None
+    current_video_id = None
     return {"ok": True}
 
 
